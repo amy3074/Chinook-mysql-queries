@@ -1,159 +1,274 @@
--- 1. Provide a query showing Customers (just their full names, customer ID and country) who are not in the US.
-select customerid, firstname, lastname, country
-from customer
-where not country = 'USA';
+-- Chinook MySQL queries
+USE Chinook;
 
--- 2. Provide a query only showing the Customers from Brazil.
-select * from customer
-where country = 'Brazil';
+-- 1) Customers not in the US (full name, id, country)
+SELECT c.CustomerId,
+       CONCAT(c.FirstName,' ',c.LastName) AS FullName,
+       c.Country
+FROM Customer c
+WHERE c.Country <> 'USA'
+ORDER BY c.Country, FullName;
 
--- 3. Provide a query showing the Invoices of customers who are from Brazil. The resultant table should show the customer's full name, Invoice ID, Date of the invoice and billing country.
-select c.firstname, c.lastname, i.invoiceid, i.invoicedate, i.billingcountry
-from customer as c, invoice as i
-where c.country = 'Brazil' and
-c.customerid = i.customerid;
+-- 2) Customers from Brazil
+SELECT c.CustomerId,
+       CONCAT(c.FirstName,' ',c.LastName) AS FullName,
+       c.Country
+FROM Customer c
+WHERE c.Country = 'Brazil'
+ORDER BY FullName;
 
--- 4. Provide a query showing only the Employees who are Sales Agents.
-select * from employee
-where employee.title = 'Sales Support Agent';
+-- 3) Invoices of customers from Brazil (name, invoice id/date, billing country)
+SELECT CONCAT(c.FirstName,' ',c.LastName) AS Customer,
+       i.InvoiceId,
+       i.InvoiceDate,
+       i.BillingCountry
+FROM Customer c
+JOIN Invoice  i ON i.CustomerId = c.CustomerId
+WHERE c.Country = 'Brazil'
+ORDER BY i.InvoiceDate, i.InvoiceId;
 
--- 5. Provide a query showing a unique list of billing countries from the Invoice table.
-select distinct billingcountry from invoice;
+-- 4) Employees who are Sales Agents
+SELECT e.EmployeeId,
+       CONCAT(e.FirstName,' ',e.LastName) AS Employee,
+       e.Title
+FROM Employee e
+WHERE e.Title = 'Sales Support Agent'
+ORDER BY Employee;
 
--- 6. Provide a query showing the invoices of customers who are from Brazil.
-select *
-from customer as c, invoice as i
-where c.country = 'Brazil' and
-c.customerid = i.customerid;
+-- 5) Distinct billing countries
+SELECT DISTINCT BillingCountry
+FROM Invoice
+ORDER BY BillingCountry;
 
--- 7. Provide a query that shows the invoices associated with each sales agent. The resultant table should include the Sales Agent's full name.
-select e.firstname, e.lastname, i.invoiceid, i.customerid, i.invoicedate, i.billingaddress, i.billingcountry, i.billingpostalcode, i.total
-from customer as c, invoice as i
-on c.customerid = i.customerid
-join employee as e
-on e.employeeid = c.supportrepid
-order by e.employeeid;
+-- 6) All invoice rows for customers from Brazil
+SELECT i.*
+FROM Customer c
+JOIN Invoice  i ON i.CustomerId = c.CustomerId
+WHERE c.Country = 'Brazil'
+ORDER BY i.InvoiceDate, i.InvoiceId;
 
--- 8. Provide a query that shows the Invoice Total, Customer name, Country and Sale Agent name for all invoices and customers.
-select e.firstname as 'employee first', e.lastname as 'employee last', c.firstname as 'customer first', c.lastname as 'customer last', c.country, i.total
-from employee as e
-	join customer as c on e.employeeid = c.supportrepid
-	join invoice as i on c.customerid = i.customerid
+-- 7) Invoices associated with each sales agent (include agent name)
+SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+       i.InvoiceId,
+       i.InvoiceDate,
+       i.BillingCountry,
+       i.Total
+FROM Employee e
+JOIN Customer c ON c.SupportRepId = e.EmployeeId
+JOIN Invoice  i ON i.CustomerId  = c.CustomerId
+WHERE e.Title = 'Sales Support Agent'
+ORDER BY e.EmployeeId, i.InvoiceDate, i.InvoiceId;
 
--- 9. How many Invoices were there in 2009 and 2011? What are the respective total sales for each of those years?
-select count(i.invoiceid), sum(i.total)
-from invoice as i
-where i.invoicedate between datetime('2011-01-01 00:00:00') and datetime('2011-12-31 00:00:00');
+-- 8) Invoice total + customer name/country + sales agent name
+SELECT i.Total,
+       CONCAT(c.FirstName,' ',c.LastName) AS Customer,
+       c.Country,
+       CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent
+FROM Invoice i
+JOIN Customer c ON c.CustomerId = i.CustomerId
+LEFT JOIN Employee e ON e.EmployeeId = c.SupportRepId
+ORDER BY i.InvoiceDate, i.InvoiceId;
 
-select count(i.invoiceid), sum(i.total)
-from invoice as i
-where i.invoicedate between datetime('2009-01-01 00:00:00') and datetime('2009-12-31 00:00:00');
+-- 9) Invoices & total sales in 2009 and 2011 (one result table)
+SELECT YEAR(i.InvoiceDate) AS Year,
+       COUNT(*)            AS InvoiceCount,
+       ROUND(SUM(i.Total),2) AS TotalSales
+FROM Invoice i
+WHERE YEAR(i.InvoiceDate) IN (2009, 2011)
+GROUP BY YEAR(i.InvoiceDate)
+ORDER BY Year;
 
--- 10. Looking at the InvoiceLine table, provide a query that COUNTs the number of line items for Invoice ID 37.
-select count(i.invoicelineid)
-from invoiceline as i
-where i.invoiceid = 37
+-- 10) # line items for InvoiceId = 37
+SELECT COUNT(*) AS LineItemCount
+FROM InvoiceLine
+WHERE InvoiceId = 37;
 
--- 11. Looking at the InvoiceLine table, provide a query that COUNTs the number of line items for each Invoice. HINT: [GROUP BY](http://www.sqlite.org/lang_select.html#resultset)
-select invoiceid, count(invoicelineid)
-from invoiceline
-group by invoiceid
+-- 11) # line items per invoice
+SELECT InvoiceId,
+       COUNT(*) AS LineItemCount
+FROM InvoiceLine
+GROUP BY InvoiceId
+ORDER BY InvoiceId;
 
--- 12. Provide a query that includes the track name with each invoice line item.
-select i.*, t.name
-from invoiceline as i, track as t
-on i.trackid = t.trackid
+-- 12) Each invoice line with its track name
+SELECT il.InvoiceLineId,
+       il.InvoiceId,
+       t.Name AS Track
+FROM InvoiceLine il
+JOIN Track t ON t.TrackId = il.TrackId
+ORDER BY il.InvoiceId, il.InvoiceLineId;
 
--- 13. Provide a query that includes the purchased track name AND artist name with each invoice line item.
-select i.*, t.name as 'track', ar.name as 'artist'
-from invoiceline as i
-	join track as t on i.trackid = t.trackid
-	join album as al on al.albumid = t.albumid
-	join artist as ar on ar.artistid = al.artistid
+-- 13) Each invoice line with track name AND artist name
+SELECT il.InvoiceLineId,
+       il.InvoiceId,
+       t.Name AS Track,
+       ar.Name AS Artist
+FROM InvoiceLine il
+JOIN Track t  ON t.TrackId  = il.TrackId
+JOIN Album al ON al.AlbumId = t.AlbumId
+JOIN Artist ar ON ar.ArtistId = al.ArtistId
+ORDER BY il.InvoiceId, il.InvoiceLineId;
 
--- 14. Provide a query that shows the # of invoices per country. HINT: [GROUP BY](http://www.sqlite.org/lang_select.html#resultset)
-select billingcountry, count(billingcountry) as '# of invoices'
-from invoice
-group by billingcountry
+-- 14) # of invoices per billing country
+SELECT i.BillingCountry,
+       COUNT(*) AS InvoiceCount
+FROM Invoice i
+GROUP BY i.BillingCountry
+ORDER BY InvoiceCount DESC, i.BillingCountry;
 
--- 15. Provide a query that shows the total number of tracks in each playlist. The Playlist name should be include on the resultant table.
-select *, count(trackid) as '# of tracks'
-from playlisttrack, playlist
-on playlisttrack.playlistid = playlist.playlistid
-group by playlist.playlistid
+-- 15) Total tracks in each playlist (include playlist name)
+SELECT p.PlaylistId,
+       p.Name AS Playlist,
+       COUNT(pt.TrackId) AS TrackCount
+FROM Playlist p
+LEFT JOIN PlaylistTrack pt ON pt.PlaylistId = p.PlaylistId
+GROUP BY p.PlaylistId, p.Name
+ORDER BY TrackCount DESC, p.Name;
 
--- 16. Provide a query that shows all the Tracks, but displays no IDs. The resultant table should include the Album name, Media type and Genre.
-select t.name as 'track', t.composer, t.milliseconds, t.bytes, t.unitprice, a.title as 'album', g.name as 'genre', m.name as 'media type'
-from track as t
-	join album as a on a.albumid = t.albumid
-	join genre as g on g.genreid = t.genreid
-	join mediatype as m on m.mediatypeid = t.mediatypeid
+-- 16) All tracks, no ID columns; include Album, MediaType, Genre
+SELECT t.Name        AS Track,
+       t.Composer,
+       t.Milliseconds,
+       t.Bytes,
+       t.UnitPrice,
+       a.Title       AS Album,
+       m.Name        AS MediaType,
+       g.Name        AS Genre
+FROM Track t
+JOIN Album a     ON a.AlbumId     = t.AlbumId
+JOIN MediaType m ON m.MediaTypeId = t.MediaTypeId
+JOIN Genre g     ON g.GenreId     = t.GenreId
+ORDER BY Track;
 
--- 17. Provide a query that shows all Invoices but includes the # of invoice line items.
-select invoice.*, count(invoiceline.invoicelineid) as '# of line items'
-from invoice, invoiceline
-on invoice.invoiceid = invoiceline.invoiceid
-group by invoice.invoiceid
+-- 17) All invoices + # of line items
+SELECT i.InvoiceId,
+       i.CustomerId,
+       i.InvoiceDate,
+       i.BillingCountry,
+       i.Total,
+       COUNT(il.InvoiceLineId) AS LineItemCount
+FROM Invoice i
+LEFT JOIN InvoiceLine il ON il.InvoiceId = i.InvoiceId
+GROUP BY i.InvoiceId, i.CustomerId, i.InvoiceDate, i.BillingCountry, i.Total
+ORDER BY i.InvoiceId;
 
--- 18. Provide a query that shows total sales made by each sales agent.
-select e.*, count(i.invoiceid) as 'Total Number of Sales'
-from employee as e
-	join customer as c on e.employeeid = c.supportrepid
-	join invoice as i on i.customerid = c.customerid
-group by e.employeeid
+-- 18) Total sales by each sales agent
+SELECT e.EmployeeId,
+       CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+       ROUND(SUM(i.Total),2) AS TotalSales
+FROM Employee e
+JOIN Customer c ON c.SupportRepId = e.EmployeeId
+JOIN Invoice  i ON i.CustomerId   = c.CustomerId
+WHERE e.Title = 'Sales Support Agent'
+GROUP BY e.EmployeeId, SalesAgent
+ORDER BY TotalSales DESC;
 
--- 19. Which sales agent made the most in sales in 2009?
-select *, max(total) from
-(select e.*, sum(total) as 'Total'
-from employee as e
-	join customer as c on e.employeeid = c.supportrepid
-	join invoice as i on i.customerid = c.customerid
-where i.invoicedate between '2009-01-00' and '2009-12-31'
-group by e.employeeid)
+-- 19) Which sales agent made the most sales in 2009?
+SELECT SalesAgent, TotalSales
+FROM (
+  SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+         SUM(i.Total) AS TotalSales
+  FROM Employee e
+  JOIN Customer c ON c.SupportRepId = e.EmployeeId
+  JOIN Invoice  i ON i.CustomerId   = c.CustomerId
+  WHERE e.Title = 'Sales Support Agent'
+    AND YEAR(i.InvoiceDate) = 2009
+  GROUP BY SalesAgent
+) s
+ORDER BY TotalSales DESC
+LIMIT 1;
 
+-- 20) Which sales agent made the most sales in 2010?
+SELECT SalesAgent, TotalSales
+FROM (
+  SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+         SUM(i.Total) AS TotalSales
+  FROM Employee e
+  JOIN Customer c ON c.SupportRepId = e.EmployeeId
+  JOIN Invoice  i ON i.CustomerId   = c.CustomerId
+  WHERE e.Title = 'Sales Support Agent'
+    AND YEAR(i.InvoiceDate) = 2010
+  GROUP BY SalesAgent
+) s
+ORDER BY TotalSales DESC
+LIMIT 1;
 
--- 20. Which sales agent made the most in sales in 2010?
-select *, max(total) from
-(select e.*, sum(total) as 'Total'
-from employee as e
-	join customer as c on e.employeeid = c.supportrepid
-	join invoice as i on i.customerid = c.customerid
-where i.invoicedate between '2010-01-00' and '2010-12-31'
-group by e.employeeid)
+-- 21) Which sales agent made the most sales overall?
+SELECT SalesAgent, TotalSales
+FROM (
+  SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+         SUM(i.Total) AS TotalSales
+  FROM Employee e
+  JOIN Customer c ON c.SupportRepId = e.EmployeeId
+  JOIN Invoice  i ON i.CustomerId   = c.CustomerId
+  WHERE e.Title = 'Sales Support Agent'
+  GROUP BY SalesAgent
+) s
+ORDER BY TotalSales DESC
+LIMIT 1;
 
--- 21. Which sales agent made the most in sales over all?
-select *, max(total) from
-(select e.*, sum(total) as 'Total'
-from employee as e
-	join customer as c on e.employeeid = c.supportrepid
-	join invoice as i on i.customerid = c.customerid
-group by e.employeeid)
+-- 22) # of customers assigned to each sales agent
+SELECT e.EmployeeId,
+       CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+       COUNT(c.CustomerId) AS CustomerCount
+FROM Employee e
+JOIN Customer c ON c.SupportRepId = e.EmployeeId
+WHERE e.Title = 'Sales Support Agent'
+GROUP BY e.EmployeeId, SalesAgent
+ORDER BY CustomerCount DESC;
 
--- 22. Provide a query that shows the # of customers assigned to each sales agent.
-select e.*, count(c.customerid) as 'TotalCustomers'
-from employee as e
-	join customer as c on e.employeeid = c.supportrepid
-group by e.employeeid
+-- 23) Total sales per country (highest at top)
+SELECT i.BillingCountry,
+       ROUND(SUM(i.Total),2) AS TotalSales
+FROM Invoice i
+GROUP BY i.BillingCountry
+ORDER BY TotalSales DESC;
 
--- 23. Provide a query that shows the total sales per country. Which country's customers spent the most?
-select i.billingcountry, sum(total) as 'TotalSales'
-from invoice as i
-group by billingcountry
-order by totalsales desc
+-- 24) Most purchased track of 2013 (by quantity)
+SELECT t.TrackId,
+       t.Name AS Track,
+       SUM(il.Quantity) AS Units
+FROM Invoice i
+JOIN InvoiceLine il ON il.InvoiceId = i.InvoiceId
+JOIN Track t        ON t.TrackId    = il.TrackId
+WHERE YEAR(i.InvoiceDate) = 2013
+GROUP BY t.TrackId, t.Name
+ORDER BY Units DESC
+LIMIT 1;
 
--- 24. Provide a query that shows the most purchased track of 2013.
-select *, count(t.trackid) as count
-from invoiceline as il
-	join invoice as i on i.invoiceid = il.invoiceid
-	join track as t on t.trackid = il.trackid
-where i.invoicedate between '2013-01-01' and '2013-12-31'
-group by t.trackid
-order by count desc
+-- 25) Top 5 most purchased tracks overall (by quantity)
+SELECT t.TrackId,
+       t.Name AS Track,
+       ar.Name AS Artist,
+       SUM(il.Quantity) AS Units
+FROM InvoiceLine il
+JOIN Track t  ON t.TrackId  = il.TrackId
+JOIN Album al ON al.AlbumId = t.AlbumId
+JOIN Artist ar ON ar.ArtistId = al.ArtistId
+GROUP BY t.TrackId, t.Name, ar.Name
+ORDER BY Units DESC
+LIMIT 5;
 
--- 25. Provide a query that shows the top 5 most purchased tracks over all.
+-- 26) Top 3 best-selling artists (by total units)
+-- (Change SUM(il.UnitPrice * il.Quantity) AS Revenue if you prefer revenue.)
+SELECT ar.ArtistId,
+       ar.Name AS Artist,
+       SUM(il.Quantity) AS Units
+FROM InvoiceLine il
+JOIN Track t  ON t.TrackId  = il.TrackId
+JOIN Album al ON al.AlbumId = t.AlbumId
+JOIN Artist ar ON ar.ArtistId = al.ArtistId
+GROUP BY ar.ArtistId, ar.Name
+ORDER BY Units DESC
+LIMIT 3;
 
-
--- 26. Provide a query that shows the top 3 best selling artists.
-
-
--- 27. Provide a query that shows the most purchased Media Type.
+-- 27) Most purchased media type (by total units)
+SELECT m.MediaTypeId,
+       m.Name AS MediaType,
+       SUM(il.Quantity) AS Units
+FROM InvoiceLine il
+JOIN Track t    ON t.TrackId     = il.TrackId
+JOIN MediaType m ON m.MediaTypeId = t.MediaTypeId
+GROUP BY m.MediaTypeId, m.Name
+ORDER BY Units DESC
+LIMIT 1;
