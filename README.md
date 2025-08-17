@@ -1,3 +1,6 @@
+## Schema (ERD)
+![Chinook ERD](sql/chinook_erd.png)
+
 # Chinook-mysql-queries
 MySQL Workbench queries on the Chinook sample database (joins, window functions, LTV view, ERD)
 # Chinook SQL — Practice Prompts (MySQL Workbench)
