@@ -1,24 +1,26 @@
--- Chinook MySQL queries
 USE Chinook;
 
--- 1) Customers not in the US (full name, id, country)
+-- 1) Customers not in the US (id, names, country)
 SELECT c.CustomerId,
-       CONCAT(c.FirstName,' ',c.LastName) AS FullName,
+       c.FirstName,
+       c.LastName,
        c.Country
 FROM Customer c
 WHERE c.Country <> 'USA'
-ORDER BY c.Country, FullName;
+ORDER BY c.Country, c.FirstName, c.LastName;
 
 -- 2) Customers from Brazil
 SELECT c.CustomerId,
-       CONCAT(c.FirstName,' ',c.LastName) AS FullName,
+       c.FirstName,
+       c.LastName,
        c.Country
 FROM Customer c
 WHERE c.Country = 'Brazil'
-ORDER BY FullName;
+ORDER BY c.FirstName, c.LastName;
 
--- 3) Invoices of customers from Brazil (name, invoice id/date, billing country)
-SELECT CONCAT(c.FirstName,' ',c.LastName) AS Customer,
+-- 3) Invoices of customers from Brazil (names, invoice id/date, billing country)
+SELECT c.FirstName,
+       c.LastName,
        i.InvoiceId,
        i.InvoiceDate,
        i.BillingCountry
@@ -29,11 +31,12 @@ ORDER BY i.InvoiceDate, i.InvoiceId;
 
 -- 4) Employees who are Sales Agents
 SELECT e.EmployeeId,
-       CONCAT(e.FirstName,' ',e.LastName) AS Employee,
+       e.FirstName,
+       e.LastName,
        e.Title
 FROM Employee e
 WHERE e.Title = 'Sales Support Agent'
-ORDER BY Employee;
+ORDER BY e.FirstName, e.LastName;
 
 -- 5) Distinct billing countries
 SELECT DISTINCT BillingCountry
@@ -47,8 +50,10 @@ JOIN Invoice  i ON i.CustomerId = c.CustomerId
 WHERE c.Country = 'Brazil'
 ORDER BY i.InvoiceDate, i.InvoiceId;
 
--- 7) Invoices associated with each sales agent (include agent name)
-SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+-- 7) Invoices associated with each sales agent (include agent names)
+SELECT e.EmployeeId,
+       e.FirstName AS AgentFirstName,
+       e.LastName  AS AgentLastName,
        i.InvoiceId,
        i.InvoiceDate,
        i.BillingCountry,
@@ -59,19 +64,21 @@ JOIN Invoice  i ON i.CustomerId  = c.CustomerId
 WHERE e.Title = 'Sales Support Agent'
 ORDER BY e.EmployeeId, i.InvoiceDate, i.InvoiceId;
 
--- 8) Invoice total + customer name/country + sales agent name
+-- 8) Invoice total + customer name/country + sales agent names
 SELECT i.Total,
-       CONCAT(c.FirstName,' ',c.LastName) AS Customer,
+       c.FirstName AS CustomerFirstName,
+       c.LastName  AS CustomerLastName,
        c.Country,
-       CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent
+       e.FirstName AS AgentFirstName,
+       e.LastName  AS AgentLastName
 FROM Invoice i
 JOIN Customer c ON c.CustomerId = i.CustomerId
 LEFT JOIN Employee e ON e.EmployeeId = c.SupportRepId
 ORDER BY i.InvoiceDate, i.InvoiceId;
 
 -- 9) Invoices & total sales in 2009 and 2011 (one result table)
-SELECT YEAR(i.InvoiceDate) AS Year,
-       COUNT(*)            AS InvoiceCount,
+SELECT YEAR(i.InvoiceDate)   AS Year,
+       COUNT(*)              AS InvoiceCount,
        ROUND(SUM(i.Total),2) AS TotalSales
 FROM Invoice i
 WHERE YEAR(i.InvoiceDate) IN (2009, 2011)
@@ -101,11 +108,11 @@ ORDER BY il.InvoiceId, il.InvoiceLineId;
 -- 13) Each invoice line with track name AND artist name
 SELECT il.InvoiceLineId,
        il.InvoiceId,
-       t.Name AS Track,
+       t.Name  AS Track,
        ar.Name AS Artist
 FROM InvoiceLine il
-JOIN Track t  ON t.TrackId  = il.TrackId
-JOIN Album al ON al.AlbumId = t.AlbumId
+JOIN Track  t  ON t.TrackId  = il.TrackId
+JOIN Album  al ON al.AlbumId = t.AlbumId
 JOIN Artist ar ON ar.ArtistId = al.ArtistId
 ORDER BY il.InvoiceId, il.InvoiceLineId;
 
@@ -135,9 +142,9 @@ SELECT t.Name        AS Track,
        m.Name        AS MediaType,
        g.Name        AS Genre
 FROM Track t
-JOIN Album a     ON a.AlbumId     = t.AlbumId
+JOIN Album    a ON a.AlbumId     = t.AlbumId
 JOIN MediaType m ON m.MediaTypeId = t.MediaTypeId
-JOIN Genre g     ON g.GenreId     = t.GenreId
+JOIN Genre     g ON g.GenreId     = t.GenreId
 ORDER BY Track;
 
 -- 17) All invoices + # of line items
@@ -154,67 +161,78 @@ ORDER BY i.InvoiceId;
 
 -- 18) Total sales by each sales agent
 SELECT e.EmployeeId,
-       CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+       e.FirstName AS AgentFirstName,
+       e.LastName  AS AgentLastName,
        ROUND(SUM(i.Total),2) AS TotalSales
 FROM Employee e
 JOIN Customer c ON c.SupportRepId = e.EmployeeId
 JOIN Invoice  i ON i.CustomerId   = c.CustomerId
 WHERE e.Title = 'Sales Support Agent'
-GROUP BY e.EmployeeId, SalesAgent
+GROUP BY e.EmployeeId, AgentFirstName, AgentLastName
 ORDER BY TotalSales DESC;
 
 -- 19) Which sales agent made the most sales in 2009?
-SELECT SalesAgent, TotalSales
+SELECT s.EmployeeId,
+       s.FirstName AS AgentFirstName,
+       s.LastName  AS AgentLastName,
+       s.TotalSales
 FROM (
-  SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+  SELECT e.EmployeeId, e.FirstName, e.LastName,
          SUM(i.Total) AS TotalSales
   FROM Employee e
   JOIN Customer c ON c.SupportRepId = e.EmployeeId
   JOIN Invoice  i ON i.CustomerId   = c.CustomerId
   WHERE e.Title = 'Sales Support Agent'
     AND YEAR(i.InvoiceDate) = 2009
-  GROUP BY SalesAgent
-) s
-ORDER BY TotalSales DESC
+  GROUP BY e.EmployeeId, e.FirstName, e.LastName
+) AS s
+ORDER BY s.TotalSales DESC
 LIMIT 1;
 
 -- 20) Which sales agent made the most sales in 2010?
-SELECT SalesAgent, TotalSales
+SELECT s.EmployeeId,
+       s.FirstName AS AgentFirstName,
+       s.LastName  AS AgentLastName,
+       s.TotalSales
 FROM (
-  SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+  SELECT e.EmployeeId, e.FirstName, e.LastName,
          SUM(i.Total) AS TotalSales
   FROM Employee e
   JOIN Customer c ON c.SupportRepId = e.EmployeeId
   JOIN Invoice  i ON i.CustomerId   = c.CustomerId
   WHERE e.Title = 'Sales Support Agent'
     AND YEAR(i.InvoiceDate) = 2010
-  GROUP BY SalesAgent
-) s
-ORDER BY TotalSales DESC
+  GROUP BY e.EmployeeId, e.FirstName, e.LastName
+) AS s
+ORDER BY s.TotalSales DESC
 LIMIT 1;
 
 -- 21) Which sales agent made the most sales overall?
-SELECT SalesAgent, TotalSales
+SELECT s.EmployeeId,
+       s.FirstName AS AgentFirstName,
+       s.LastName  AS AgentLastName,
+       s.TotalSales
 FROM (
-  SELECT CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+  SELECT e.EmployeeId, e.FirstName, e.LastName,
          SUM(i.Total) AS TotalSales
   FROM Employee e
   JOIN Customer c ON c.SupportRepId = e.EmployeeId
   JOIN Invoice  i ON i.CustomerId   = c.CustomerId
   WHERE e.Title = 'Sales Support Agent'
-  GROUP BY SalesAgent
-) s
-ORDER BY TotalSales DESC
+  GROUP BY e.EmployeeId, e.FirstName, e.LastName
+) AS s
+ORDER BY s.TotalSales DESC
 LIMIT 1;
 
 -- 22) # of customers assigned to each sales agent
 SELECT e.EmployeeId,
-       CONCAT(e.FirstName,' ',e.LastName) AS SalesAgent,
+       e.FirstName AS AgentFirstName,
+       e.LastName  AS AgentLastName,
        COUNT(c.CustomerId) AS CustomerCount
 FROM Employee e
 JOIN Customer c ON c.SupportRepId = e.EmployeeId
 WHERE e.Title = 'Sales Support Agent'
-GROUP BY e.EmployeeId, SalesAgent
+GROUP BY e.EmployeeId, AgentFirstName, AgentLastName
 ORDER BY CustomerCount DESC;
 
 -- 23) Total sales per country (highest at top)
@@ -242,21 +260,20 @@ SELECT t.TrackId,
        ar.Name AS Artist,
        SUM(il.Quantity) AS Units
 FROM InvoiceLine il
-JOIN Track t  ON t.TrackId  = il.TrackId
-JOIN Album al ON al.AlbumId = t.AlbumId
+JOIN Track  t  ON t.TrackId  = il.TrackId
+JOIN Album  al ON al.AlbumId = t.AlbumId
 JOIN Artist ar ON ar.ArtistId = al.ArtistId
 GROUP BY t.TrackId, t.Name, ar.Name
 ORDER BY Units DESC
 LIMIT 5;
 
 -- 26) Top 3 best-selling artists (by total units)
--- (Change SUM(il.UnitPrice * il.Quantity) AS Revenue if you prefer revenue.)
 SELECT ar.ArtistId,
        ar.Name AS Artist,
        SUM(il.Quantity) AS Units
 FROM InvoiceLine il
-JOIN Track t  ON t.TrackId  = il.TrackId
-JOIN Album al ON al.AlbumId = t.AlbumId
+JOIN Track  t  ON t.TrackId  = il.TrackId
+JOIN Album  al ON al.AlbumId = t.AlbumId
 JOIN Artist ar ON ar.ArtistId = al.ArtistId
 GROUP BY ar.ArtistId, ar.Name
 ORDER BY Units DESC
@@ -267,7 +284,7 @@ SELECT m.MediaTypeId,
        m.Name AS MediaType,
        SUM(il.Quantity) AS Units
 FROM InvoiceLine il
-JOIN Track t    ON t.TrackId     = il.TrackId
+JOIN Track    t ON t.TrackId     = il.TrackId
 JOIN MediaType m ON m.MediaTypeId = t.MediaTypeId
 GROUP BY m.MediaTypeId, m.Name
 ORDER BY Units DESC
